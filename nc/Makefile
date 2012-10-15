@@ -1,5 +1,6 @@
 CC = gcc
 LD = gcc
+CC_OPTS = -O0 -Wall -g
 
 all: compile link
 
