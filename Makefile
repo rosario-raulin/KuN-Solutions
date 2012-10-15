@@ -16,11 +16,11 @@ nc_link: nc.o simplesocket.o
 
 ncs: ncs_compile ncs_link
 
-ncs_compile: src/ncs/ncs.c src/common/simplesocket.c src/common/simplesocket.h
-	$(CC) $(CFLAGS) -c src/ncs/ncs.c src/common/simplesocket.c
+ncs_compile: src/ncs/ncs.c src/common/simplesocket.c src/common/simplesocket.h src/common/fds.h src/common/fds.c
+	$(CC) $(CFLAGS) -c src/ncs/ncs.c src/common/simplesocket.c src/common/fds.c
 
-ncs_link: ncs.o simplesocket.o 
-	$(LD) -o ncs ncs.o simplesocket.o
+ncs_link: ncs.o simplesocket.o fds.o
+	$(LD) -o ncs ncs.o simplesocket.o fds.o
 
 clean:
 	rm -f *.o nc ncs

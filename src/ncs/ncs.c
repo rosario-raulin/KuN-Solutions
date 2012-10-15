@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 
 #include "../common/simplesocket.h"
+#include "../common/fds.h"
 
 #define DEFAULT_PORT "8080"
 #define DEFAULT_BUFSIZE 8192
@@ -21,68 +22,61 @@ echo_client(int client) {
 		return CLIENT_HUP;
 	} else {
 		buf[bytes_read] = '\0';
-		write(client, buf, bytes_read + sizeof('\0'));
+		write(client, buf, bytes_read + 1);
 		if (verbose) { printf(">> %s", buf); }
 		return 0;
 	}
 }
 
+static fds* 
+handle_input(fds* f, int fd, int pos) {
+	if (fd == f->p[0].fd) {
+		int next;
+		if ((next = accept(f->p[0].fd, NULL, NULL)) != -1) {
+			return fds_add(f, next, POLLIN);
+		}
+	} else {
+		if (echo_client(fd) == CLIENT_HUP) {
+			return fds_remove(f, pos);
+		}
+	}
+	return f;
+}
+
 static void
 handle_clients(int s) {
 
-	int capacity = DEFAULT_BUFSIZE;
-	int nfds = 1;
-	struct pollfd* fds = calloc(capacity, sizeof(struct pollfd));
-	if (!fds) {
+	fds* f = fds_create();
+	f = fds_add(f, s, POLLIN);
+	if (f == NULL) {
 		fprintf(stderr, "error: insufficient memory!\n");
-		exit(EXIT_FAILURE);
 	}
-
-	fds[0].fd = s;
-	fds[0].events = POLLIN;
-
+	
 	int nrevs;
-	while ((nrevs = poll(fds, nfds, -1)) > 0) {
+	while ((nrevs = poll(f->p, f->size, -1)) > 0) {
 		int i;
 		int handled;
 
-		for (i = handled = 0; i < nfds && handled < nrevs; ++i) {
-			switch (fds[i].revents) {
+		for (i = handled = 0; i < f->size && handled < nrevs; ++i) {
+			switch (f->p[i].revents) {
 				case POLLIN:
 					++handled;
-					if (fds[i].fd == s) {
-						if (nfds == capacity) {
-							capacity *= 2;
-							if ((fds = realloc(fds, capacity)) == NULL) {
-								fprintf(stderr, "error: insufficient memory!\n");
-								exit(EXIT_FAILURE);
-							}
-						}
-						if ((fds[nfds].fd = accept(s, NULL, NULL)) == -1) {
-							fprintf(stderr, "error: accept() failed!\n");
-							continue;
-						}
-						fds[nfds++].events = POLLIN;
-					} else {
-						if (echo_client(fds[i].fd) == CLIENT_HUP) {
-							close(fds[i].fd);
-							fds[i] = fds[--nfds];
-						}
+					if (handle_input(f, f->p[i].fd, i) == NULL) {
+						fprintf(stderr, "error: insufficient memory!\n");
+						exit(EXIT_FAILURE);
 					}
-					
-					break;
-				case 0:
 					break;
 
+				case 0:
+					break;
+				
 				default:
-					fprintf(stderr, "warning: revents: %#x\nfrom: %d!\n",
-									fds[i].revents, i);
+					fprintf(stderr, "warning: revents: %#x\nfrom: %d!\n", 
+						f->p[i].revents, i);
 					break;
 			}
 		}
 	}
-
-	free(fds);
 }
 
 int
