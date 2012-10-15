@@ -56,13 +56,22 @@ csock(char* host, char* port) {
 	return get_socket(host, port, AF_UNSPEC, &connect);
 }
 
+static int
+ssock(int fam, char* port) {
+	int s = get_socket(NULL, port, fam, &bind);
+	if (s != -1 && listen(s, 3) < 0) {
+		s = -1;
+	}
+	return s;
+}
+
 int
 ssock_v4(char* port) {
-	return get_socket(NULL, port, AF_INET, &bind);
+	return ssock(AF_INET, port);
 }
 
 int
 ssock_v6(char* port) {
-	return get_socket(NULL, port, AF_INET6, &bind);
+	return ssock(AF_INET6, port);
 }
 

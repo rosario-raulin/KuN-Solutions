@@ -63,10 +63,9 @@ main(int argc, char* argv[]) {
 	if (!server || !port) {
 		print_usage(argv[0]);
 		return EXIT_FAILURE;
-	} else {
-		io(server, port);
 	}
 
+	io(server, port);
 	return EXIT_SUCCESS;
 }
 
