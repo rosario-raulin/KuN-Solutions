@@ -29,7 +29,7 @@ csock_v4(char* host, char* port) {
 	for (rp = res; rp != NULL; rp = rp->ai_next) {
 		s = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
 		if (s == -1) { continue; }
-		if (connect(s, rp->ai_addr, rp->ai_addrlen) == 0) {	break; }
+		if (connect(s, rp->ai_addr, rp->ai_addrlen) == 0) { break; }
 	}
 
 	if (rp == NULL) {
