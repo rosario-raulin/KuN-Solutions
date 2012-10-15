@@ -3,13 +3,13 @@
 #include <unistd.h>
 #include <poll.h>
 
-#include "simplesocket.h"
+#include "../common/simplesocket.h"
 
 #define BUFSIZE 8192
 
 static void
 io(char* host, char* port) {
-	int s = csock_v4(host, port);
+	int s = csock(host, port);
 
 	if (s < 0) {
 		fprintf(stderr, "error: %s!\n", SOCK_ERR);
