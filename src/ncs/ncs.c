@@ -50,6 +50,7 @@ handle_clients(int s) {
 	f = fds_add(f, s, POLLIN);
 	if (f == NULL) {
 		fprintf(stderr, "error: insufficient memory!\n");
+		exit(EXIT_FAILURE);
 	}
 	
 	int nrevs;
