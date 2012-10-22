@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <poll.h>
 #include <sys/types.h>
@@ -83,9 +84,10 @@ handle_clients(int s) {
 int
 main(int argc, char* argv[]) {
 
+	bool use_six = false;
 	char* port = DEFAULT_PORT;
 	int opt;
-	while ((opt = getopt(argc, argv, "p:v")) != -1) {
+	while ((opt = getopt(argc, argv, "p:v6")) != -1) {
 		switch (opt) {
 			case 'p':
 				port = optarg;
@@ -93,10 +95,13 @@ main(int argc, char* argv[]) {
 			case 'v':
 				verbose = 1;
 				break;
+			case '6':
+				use_six = true;
+				break;
 		}
 	}
 
-	int s = ssock_v4(port);
+	int s = use_six ? ssock_v6(port) : ssock_v4(port);
 	if (s == -1) {
 		fprintf(stderr, "error: %s\n", SOCK_ERR);
 		return EXIT_FAILURE;
