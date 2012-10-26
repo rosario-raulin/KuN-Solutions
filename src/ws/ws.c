@@ -84,17 +84,14 @@ answer(int to, request* req) {
 
 		if (!resp) {
 			fprintf(stderr, "error: insufficient memory!\n");
-			exit(EXIT_FAILURE);
-		}
-		
-		if (fd >= 0) {
-			if (write(to, resp->p, resp->len) != -1) {
-				char buf[BUFSIZE];
-				int bytes_read;
-				while ((bytes_read = read(fd, buf, BUFSIZE)) > 0) {
-					if (write(to, buf, bytes_read) == -1) break;
-				}
+		} else if (write(to, resp->p, resp->len) != -1 && fd >= 0) {
+			char buf[BUFSIZE];
+			int bytes_read;
+			while ((bytes_read = read(fd, buf, BUFSIZE)) > 0) {
+				if (write(to, buf, bytes_read) == -1) break;
 			}
+		}
+		if (fd >= 0) {
 			close(fd);
 		}
 		buffer_free(resp);
