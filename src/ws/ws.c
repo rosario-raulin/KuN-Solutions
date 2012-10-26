@@ -15,7 +15,7 @@
 #include "../common/buffer.h"
 #include "request.h"
 
-#define BUFSIZE 8192
+#define BUFSIZE 8192 
 #define MAX_PATH_LEN 128
 #define MAX_REQ_LEN (8192 * 10)
 #define DEFAULT_PORT "8080"
@@ -66,7 +66,7 @@ get_payload_fd(int* fd, char* path) {
 static void
 answer(int to, request* req) {
 	if (req) {
-		int fd;
+		int fd = -1;
 		int f_len = get_payload_fd(&fd, req->resource);
 
 		buffer* resp;
@@ -89,13 +89,15 @@ answer(int to, request* req) {
 						
 		write(to, resp->p, resp->len);
 
-		char buf[BUFSIZE];
-		int bytes_read;
-		while ((bytes_read = read(fd, buf, BUFSIZE)) > 0) {
-			write(to, buf, bytes_read);
+		if (fd >= 0) {
+			char buf[BUFSIZE];
+			int bytes_read;
+			while ((bytes_read = read(fd, buf, BUFSIZE)) > 0) {
+				write(to, buf, bytes_read);
+			}
+			close(fd);
 		}
 
-		close(fd);
 		buffer_free(resp);
 	}
 }
@@ -111,7 +113,7 @@ handle_request(int fd) {
 
 	char buf[BUFSIZE];
 	char* end;
-	while (b && (end = header_end(b->p)) == NULL && b->size < MAX_REQ_LEN) {
+	while (b && (end = header_end(b->p)) == NULL && b->len < MAX_REQ_LEN) {
 		int bytes_read = read(fd, buf, BUFSIZE);
 		if (bytes_read <= 0) {
 			buffer_free(b);
@@ -127,8 +129,15 @@ handle_request(int fd) {
 			request *r = request_create(b->p);
 			answer(fd, r);
 			request_free(r);
-		} else if (b->size >= MAX_REQ_LEN) {
-			puts("req too long");
+		} else if (b->len >= MAX_REQ_LEN) {
+			if (verbose) {
+				fprintf(stderr, "warning: request too long!\n");
+			}
+			buffer* resp = create_response(400, "Bad Request", 0);
+			if (resp) {
+				write(fd, resp->p, resp->len);
+				buffer_free(resp);
+			}
 		}
 		buffer_free(b);
 	}
@@ -217,7 +226,6 @@ main(int argc, char* argv[]) {
 	char wd[MAX_PATH_LEN];
 	if (getcwd(wd, MAX_PATH_LEN) == NULL || chdir(wd) == -1 || chroot(wd) == -1) {
 		fprintf(stderr, "error: chrooting didn't work, please run as root!\n");
-		fprintf(stderr, "error: %s\n", strerror(errno));
 		return EXIT_FAILURE;
 	}
 
