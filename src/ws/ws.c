@@ -87,13 +87,16 @@ answer(int to, request* req) {
 			exit(EXIT_FAILURE);
 		}
 						
-		write(to, resp->p, resp->len);
+		if (write(to, resp->p, resp->len) == -1) {
+			if (fd >= 0) close(fd);
+			return;
+		}
 
 		if (fd >= 0) {
 			char buf[BUFSIZE];
 			int bytes_read;
 			while ((bytes_read = read(fd, buf, BUFSIZE)) > 0) {
-				write(to, buf, bytes_read);
+				if (write(to, buf, bytes_read) == -1) break;
 			}
 			close(fd);
 		}
