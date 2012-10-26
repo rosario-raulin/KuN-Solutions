@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <signal.h>
 
 #include "../common/simplesocket.h"
 #include "../common/fds.h"
@@ -242,6 +243,13 @@ main(int argc, char* argv[]) {
 			case 'f':
 				use_fork = true;
 		}
+	}
+
+	struct sigaction act;
+	act.sa_handler = SIG_IGN;
+	if (sigaction(SIGPIPE, &act, NULL) == -1) {
+		fprintf(stderr, "error: changing signaler handlers failed!\n");
+		return EXIT_FAILURE;
 	}
 
 	char wd[MAX_PATH_LEN];
