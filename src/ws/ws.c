@@ -164,7 +164,29 @@ handle_input(fds* f, int pos) {
 }
 
 static void
-handle_clients(int s) {
+handle_clients_fork(int s) {
+	while (true) {
+		int fd = accept(s, NULL, NULL);
+		if (fd != -1) {
+			switch (fork()) {
+				case 0:
+					handle_request(fd);
+					close(fd);
+					exit(EXIT_SUCCESS);
+				case -1:
+					fprintf(stderr, "error: fork() failed!\n");
+					exit(EXIT_FAILURE);
+					break;
+				default:
+					close(fd);
+					break;
+			}
+		}
+	}
+}
+
+static void
+handle_clients_poll(int s) {
 	fds* f = fds_create();
 
 	if ((f = fds_add(f, s, POLLIN)) == NULL) {
@@ -206,10 +228,11 @@ handle_clients(int s) {
 int
 main(int argc, char* argv[]) {
 	bool use_v6 = false;
+	bool use_fork = false;
 	char* port = DEFAULT_PORT;
 
 	int opt;
-	while ((opt = getopt(argc, argv, "p:v6")) != -1) {
+	while ((opt = getopt(argc, argv, "p:v6f")) != -1) {
 		switch (opt) {
 			case 'p':
 				port = optarg; 
@@ -220,6 +243,8 @@ main(int argc, char* argv[]) {
 			case '6':
 				use_v6 = true;
 				break;
+			case 'f':
+				use_fork = true;
 		}
 	}
 
@@ -235,7 +260,11 @@ main(int argc, char* argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	handle_clients(s);
+	if (use_fork) {
+		handle_clients_fork(s);
+	} else {
+		handle_clients_poll(s);
+	}
 
 	return EXIT_SUCCESS;
 }
