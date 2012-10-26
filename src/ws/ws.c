@@ -68,7 +68,7 @@ answer(int to, request* req) {
 	if (req) {
 		int fd = -1;
 		int f_len = get_payload_fd(&fd, req->resource);
-
+			
 		buffer* resp;
 		switch (f_len) {
 			case ERROR_404:
@@ -86,21 +86,17 @@ answer(int to, request* req) {
 			fprintf(stderr, "error: insufficient memory!\n");
 			exit(EXIT_FAILURE);
 		}
-						
-		if (write(to, resp->p, resp->len) == -1) {
-			if (fd >= 0) close(fd);
-			return;
-		}
-
+		
 		if (fd >= 0) {
-			char buf[BUFSIZE];
-			int bytes_read;
-			while ((bytes_read = read(fd, buf, BUFSIZE)) > 0) {
-				if (write(to, buf, bytes_read) == -1) break;
+			if (write(to, resp->p, resp->len) != -1) {
+				char buf[BUFSIZE];
+				int bytes_read;
+				while ((bytes_read = read(fd, buf, BUFSIZE)) > 0) {
+					if (write(to, buf, bytes_read) == -1) break;
+				}
 			}
 			close(fd);
 		}
-
 		buffer_free(resp);
 	}
 }
