@@ -226,10 +226,11 @@ int
 main(int argc, char* argv[]) {
 	bool use_v6 = false;
 	bool use_fork = false;
+	bool use_chroot = false;
 	char* port = DEFAULT_PORT;
 
 	int opt;
-	while ((opt = getopt(argc, argv, "p:v6f")) != -1) {
+	while ((opt = getopt(argc, argv, "cfv6p:")) != -1) {
 		switch (opt) {
 			case 'p':
 				port = optarg; 
@@ -242,9 +243,13 @@ main(int argc, char* argv[]) {
 				break;
 			case 'f':
 				use_fork = true;
+				break;
+			case 'c':
+				use_chroot = true;
+				break;
 		}
 	}
-
+	
 	struct sigaction act;
 	act.sa_handler = SIG_IGN;
 	if (sigaction(SIGPIPE, &act, NULL) == -1) {
@@ -252,10 +257,12 @@ main(int argc, char* argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	char wd[MAX_PATH_LEN];
-	if (getcwd(wd, MAX_PATH_LEN) == NULL || chdir(wd) == -1 || chroot(wd) == -1) {
-		fprintf(stderr, "error: chrooting didn't work, please run as root!\n");
-		return EXIT_FAILURE;
+	if (use_chroot) {
+		char wd[MAX_PATH_LEN];
+		if (getcwd(wd, MAX_PATH_LEN) == NULL || chdir(wd) == -1 || chroot(wd) == -1) {
+			fprintf(stderr, "error: chrooting didn't work, please run as root!\n");
+			return EXIT_FAILURE;
+		}
 	}
 
 	const int s = use_v6 ? ssock_v6(port) : ssock_v4(port);
