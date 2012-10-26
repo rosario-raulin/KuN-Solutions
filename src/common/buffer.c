@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 #include "buffer.h"
 
@@ -36,7 +37,7 @@ buffer_extend(buffer* b, int add) {
 }
 
 buffer*
-buffer_cat_s_n(buffer* b, char* s, int len) {
+buffer_cat_s_n(buffer* b, char* s, int len, bool terminate) {
 	if (s[len-1] == '\0') { /* TODO: This should not be needed...  */
 		--len;
 	}
@@ -44,7 +45,9 @@ buffer_cat_s_n(buffer* b, char* s, int len) {
 	if (b) {
 		memcpy(b->p + b->len, s, len);
 		b->len += len;
-		b->p[b->len] = '\0';
+		if (terminate) {
+			b->p[b->len] = '\0';
+		}	
 	}
 
 	return b;
@@ -52,20 +55,19 @@ buffer_cat_s_n(buffer* b, char* s, int len) {
 
 buffer*
 buffer_cat_s(buffer* b, char* s) {
-	return buffer_cat_s_n(b, s, strlen(s));
+	return buffer_cat_s_n(b, s, strlen(s), true);
 }
 
 buffer*
 buffer_cat_i(buffer* b, int i) {
-	char* c = malloc(MAX_NUMBER_LEN);
+	char buf[MAX_NUMBER_LEN];
 	int copied;
 
-	if (c && (copied = snprintf(c, MAX_NUMBER_LEN, "%d", i)) > 0) {
-		b = buffer_cat_s_n(b, c, copied);
+	if ((copied = snprintf(buf, MAX_NUMBER_LEN, "%d", i)) > 0) {
+		b = buffer_cat_s_n(b, buf, copied, true);
 	} else {
 		b = NULL;
 	}
-	if (c) free(c);
 	return b;
 }
 

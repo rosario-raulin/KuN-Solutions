@@ -25,10 +25,10 @@ ncs_link: ncs.o simplesocket.o fds.o
 ws: ws_compile ws_link
 
 ws_compile: src/ws/ws.c src/common/simplesocket.c src/common/simplesocket.h src/common/fds.h src/common/fds.c
-	$(CC) $(CFLAGS) -c src/ws/ws.c src/common/simplesocket.c src/common/fds.c src/common/buffer.c
+	$(CC) $(CFLAGS) -c src/ws/ws.c src/common/simplesocket.c src/common/fds.c src/common/buffer.c src/ws/request.c
 
-ws_link: simplesocket.o fds.o buffer.o ws.o
-	$(LD) -o ws ws.o simplesocket.o fds.o buffer.o
+ws_link: simplesocket.o fds.o buffer.o ws.o request.o
+	$(LD) -o ws ws.o simplesocket.o fds.o buffer.o request.o
 
 clean:
 	rm -f *.o nc ncs ws

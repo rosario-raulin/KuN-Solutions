@@ -7,46 +7,95 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "../common/simplesocket.h"
 #include "../common/fds.h"
 #include "../common/buffer.h"
+#include "request.h"
 
 #define BUFSIZE 8192
+#define MAX_PATH_LEN 128
 #define MAX_REQ_LEN (8192 * 10)
 #define DEFAULT_PORT "8080"
+
+#define ERROR_404 -1
+#define ERROR_500 -2
 
 static bool verbose = false;
 
 static buffer*
-create_response(int status_code, char* status_msg,
-	char* payload, int payload_len) {
+create_response(int status_code, char* status_msg, int payload_len) {
 
 	buffer* resp = buffer_create();
-	resp = buffer_cat_s_n(resp, "HTTP/1.0 ", sizeof("HTTP/1.0 "));
+	resp = buffer_cat_s_n(resp, "HTTP/1.0 ", sizeof("HTTP/1.0 "), true);
 	resp = buffer_cat_i(resp, status_code);
-	resp = buffer_cat_s_n(resp, " ", sizeof(" "));
+	resp = buffer_cat_s_n(resp, " ", sizeof(" "), true);
 	resp = buffer_cat_s(resp, status_msg);
 	resp = buffer_cat_s(resp, "\r\nConnection: close\r\nContent-Length: ");
 	resp = buffer_cat_i(resp, payload_len);
-	resp = buffer_cat_s_n(resp, "\r\n\r\n", sizeof("\r\n\r\n"));
-	resp = buffer_cat_s_n(resp, payload, payload_len);
+	resp = buffer_cat_s_n(resp, "\r\n\r\n", sizeof("\r\n\r\n"), true);
 
 	return resp;
 }
 
-#define PAYLOAD "<html><p>Hello</p></html>"
+static int
+get_payload_fd(int* fd, char* path) {
+
+	/* We serve regular files only, so check this first */
+	struct stat s;
+	if (stat(path, &s) == -1 || !S_ISREG(s.st_mode)) {
+		if (verbose) {
+			fprintf(stderr, "warning: stat() failed or no regular file!\n");
+		}
+		return ERROR_404;
+	}
+
+	*fd = open(path, O_RDONLY);
+	if (*fd == -1) {
+		if (verbose) {
+			fprintf(stderr, "warning: %s\n", strerror(errno));
+		}
+		return ERROR_404;
+	} else {
+		return s.st_size;
+	}
+}
 
 static void
-answer(int to, buffer* b, int end) {
-	buffer* resp = create_response(200, "OK", PAYLOAD, sizeof(PAYLOAD));
+answer(int to, request* req) {
+	if (req) {
+		int fd;
+		int f_len = get_payload_fd(&fd, req->resource);
 
-	if (resp) {
-		if (verbose) {
-			printf("<< in:\n%s\n", b->p);
-			printf(">> out:\n%s\n", resp->p);
+		buffer* resp;
+		switch (f_len) {
+			case ERROR_404:
+				resp = create_response(404, "Not Found", 0);
+				break;
+			case ERROR_500:
+				resp = create_response(500, "Internal Server Error", 0);
+				break;
+			default:
+				resp = create_response(200, "OK", f_len);
+				break;
 		}
+
+		if (!resp) {
+			fprintf(stderr, "error: insufficient memory!\n");
+			exit(EXIT_FAILURE);
+		}
+						
 		write(to, resp->p, resp->len);
+
+		char buf[BUFSIZE];
+		int bytes_read;
+		while ((bytes_read = read(fd, buf, BUFSIZE)) > 0) {
+			write(to, buf, bytes_read);
+		}
+
+		close(fd);
 		buffer_free(resp);
 	}
 }
@@ -68,13 +117,16 @@ handle_request(int fd) {
 			buffer_free(b);
 			return;
 		} else {
-			b = buffer_cat_s_n(b, buf, bytes_read);
+			b = buffer_cat_s_n(b, buf, bytes_read, true);
 		}
 	}
 
 	if (b) {
 		if (end) {
-			answer(fd, b, end - b->p);
+			b->p[end - b->p] = '\0';
+			request *r = request_create(b->p);
+			answer(fd, r);
+			request_free(r);
 		} else if (b->size >= MAX_REQ_LEN) {
 			puts("req too long");
 		}
@@ -160,6 +212,13 @@ main(int argc, char* argv[]) {
 				use_v6 = true;
 				break;
 		}
+	}
+
+	char wd[MAX_PATH_LEN];
+	if (getcwd(wd, MAX_PATH_LEN) == NULL || chdir(wd) == -1 || chroot(wd) == -1) {
+		fprintf(stderr, "error: chrooting didn't work, please run as root!\n");
+		fprintf(stderr, "error: %s\n", strerror(errno));
+		return EXIT_FAILURE;
 	}
 
 	const int s = use_v6 ? ssock_v6(port) : ssock_v4(port);
