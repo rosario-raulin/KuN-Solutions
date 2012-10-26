@@ -48,15 +48,20 @@ main(int argc, char* argv[]) {
 	char* server = NULL;
 	char* port = NULL;
 
-	int opt;
-	while ((opt = getopt(argc, argv, "s:p:")) != -1) {
-		switch (opt) {
-			case 's':
-				server = optarg;
-				break;
-			case 'p':
-				port = optarg;
-				break;
+	if (argc == 3) {
+		server = argv[1];
+		port = argv[2];
+	} else {
+		int opt;
+		while ((opt = getopt(argc, argv, "s:p:")) != -1) {
+			switch (opt) {
+				case 's':
+					server = optarg;
+					break;
+				case 'p':
+					port = optarg;
+					break;
+			}
 		}
 	}
 
