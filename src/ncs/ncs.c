@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <errno.h>
+#include <string.h>
 #include <unistd.h>
 #include <poll.h>
 #include <sys/types.h>
@@ -17,15 +19,28 @@ static int verbose = 0;
 
 static int
 echo_client(int client) {
-	int bytes_read;
 	char buf[DEFAULT_BUFSIZE];
-	if ((bytes_read = read(client, buf, DEFAULT_BUFSIZE - 1)) <= 0) {
-		return CLIENT_HUP;
-	} else {
-		buf[bytes_read] = '\0';
-		write(client, buf, bytes_read + 1);
-		if (verbose) { printf(">> %s", buf); }
-		return 0;
+	int bytes_read = read(client, buf, DEFAULT_BUFSIZE);
+
+	switch (bytes_read) {
+		case 0:
+		case -1:
+			if (verbose) {
+				fprintf(stderr, "error: %s\n", strerror(errno));
+			}
+			return CLIENT_HUP;
+			break;
+		default:
+			if (write(client, buf, bytes_read) <= 0) {
+				if (verbose) {
+					fprintf(stderr, "error: %s\n", strerror(errno));
+			 	}
+				return CLIENT_HUP;
+			} else {
+				if (verbose) { write(STDOUT_FILENO, buf, bytes_read); }
+				return bytes_read;
+			}
+			break;
 	}
 }
 

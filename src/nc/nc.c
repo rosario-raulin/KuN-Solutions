@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+#include <errno.h>
 #include <unistd.h>
 #include <poll.h>
 
@@ -24,13 +26,15 @@ io(char* host, char* port) {
 		while (poll(fds, 2, -1) > 0) {
 			if (fds[0].revents == POLLIN) {
 				if ((bytes_read = read(STDIN_FILENO, buf, BUFSIZE)) > 0) {
-					write(s, buf, bytes_read);
+					if (write(s, buf, bytes_read) <= 0) {
+						fprintf(stderr, "error: %s\n", strerror(errno));
+						break;
+					}
 				}
 			}
 			if (fds[1].revents == POLLIN) {
-				if ((bytes_read = read(s, buf, BUFSIZE-1)) > 0) {
-					buf[bytes_read] = '\0';
-					printf("%s", buf);
+				if ((bytes_read = read(s, buf, BUFSIZE)) > 0) {
+					write(STDOUT_FILENO, buf, bytes_read);
 				}
 			}
 		}
